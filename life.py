@@ -4,7 +4,9 @@ import time
 import argparse
 import matplotlib.pyplot as plt
 import csv
+from matplotlib.colors import ListedColormap
 
+custom_cmap = ListedColormap(['mintcream', 'tomato', 'darkgreen'])
 
 running = True # This is to handle exiting the code when the figure is closed
 def on_close(event):
@@ -225,6 +227,65 @@ def glider_speed():
     plt.show()
 
 
+def init_sirs(N=50, i=0.3, r=0.3):
+    lattice = np.random.rand(N, N)
+    
+    i_mask = (lattice < i)
+    r_mask = (lattice > (1-r))
+    s_mask = ~(i_mask + r_mask)
+
+    lattice[s_mask] = 0
+    lattice[i_mask] = 1
+    lattice[r_mask] = 2
+
+    return lattice
+    
+def sirs_update(lattice, psi, pir, prs):
+
+    N = lattice.shape[0]
+
+    s_mask = (lattice == 0)
+    i_mask = (lattice == 1)
+    r_mask = (lattice == 2)
+
+    temp_lattice = np.random.rand(N, N)
+
+    temp_lattice[i_mask] = np.where(temp_lattice[i_mask] <= pir, 2, 1)
+    temp_lattice[r_mask] = np.where(temp_lattice[r_mask] <= prs, 0, 2)
+
+    directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    i_neighbours = np.zeros(lattice.shape)
+
+    for dir in directions:
+        i_neighbours += np.roll(i_mask, dir, axis=(0, 1))
+
+    at_risk = ((i_neighbours >= 1) & s_mask)
+    safe = (~at_risk & s_mask)
+
+    temp_lattice[at_risk] = np.where(temp_lattice[at_risk] <= psi, 1, 0)
+    temp_lattice[safe] = 0
+
+    return temp_lattice.copy()
+
+
+
+
+def sirs(N=50):
+
+    lattice = init_sirs(N)
+    plt.ion()
+    fig, ax = plt.subplots()
+    fig.canvas.mpl_connect("close_event", on_close) # Handles closing figure
+    img = ax.imshow(lattice, cmap=custom_cmap, vmin=0, vmax=2)
+    ax.set_title("SIRS")
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
+    while running:
+        lattice = sirs_update(lattice, psi=0.08, pir=0.3, prs=0.3)
+        img.set_data(lattice)
+        plt.pause(0.05)
+    plt.ioff()
+
 
 
 def speedtest():
@@ -274,5 +335,7 @@ if __name__ == "__main__":
         graph()
     elif action == 'glider_speed':
         glider_speed()
+    elif action == 'sirs':
+        sirs(N)
     
     
