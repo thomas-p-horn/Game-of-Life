@@ -3,6 +3,7 @@ from numba import njit, prange
 import time
 import argparse
 import matplotlib.pyplot as plt
+import csv
 
 
 running = True # This is to handle exiting the code when the figure is closed
@@ -117,6 +118,113 @@ def plot(state=None, N=50):
         plt.pause(0.05)
     plt.ioff()
 
+def equilibrate(state=None, N=50, runs=100, max_run_length=15000, engine='roll'):
+    times = []
+
+    for _ in range(runs):
+        if state == None:
+            lattice = init_random(N)
+        else:
+            lattice = init_state(N, state)
+
+        N = 0
+        alive_previous = np.sum(lattice)
+
+        for i in range(1, max_run_length):
+            if i == max_run_length:
+                times.append(i)
+                break
+
+            lattice = life_update(lattice)
+            alive = np.sum(lattice)
+
+            if alive == alive_previous:
+                N += 1
+                if N >= 50:
+                    times.append(i)
+                    break
+            else:
+                N = 0
+            alive_previous = alive
+
+    with open('equilibration times.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(times)
+    
+    plt.hist(times)
+    plt.show()
+    
+
+def graph():
+    
+    try:
+        with open('equilibration times.csv', newline='') as f:
+            reader = csv.reader(f)
+            times = next(reader)
+            times = [int(time) for time in times]
+    except:
+        print("File doesn't exist. Try running 'equilibrate' first.")
+
+    print(times)
+    plt.hist(times, bins=100, color='forestgreen')
+    plt.xlabel('Equilibration time')
+    plt.ylabel('N')
+    plt.savefig('equilibration time.png', dpi=300, bbox_inches='tight')
+
+
+
+def compute_com(lattice):
+    L = lattice.shape[0]
+    total = np.sum(lattice)
+
+    x_indices = np.arange(L)
+    y_indices = np.arange(L)
+
+    x_com = np.sum(np.sum(lattice, axis=1) * x_indices) / total
+    y_com = np.sum(np.sum(lattice, axis=0) * y_indices) / total
+
+    return x_com, y_com
+
+def glider_speed():
+    L = 50
+    lattice = init_state(L, 'glider')
+
+    x_positions = []
+    y_positions = []
+
+    x_offset = 0
+    y_offset = 0
+
+    prev_x, prev_y = compute_com(lattice)
+
+    for t in range(200):
+        x, y = compute_com(lattice)
+
+        dx = x - prev_x
+        print(dx)
+        if dx > L/2:
+            x_offset -= L
+        elif dx < -L/2:
+            x_offset += L
+
+        dy = y - prev_y
+        if dy > L/2:
+            y_offset -= L
+        elif dy < -L/2:
+            y_offset += L
+
+        x_positions.append(x + x_offset)
+        y_positions.append(y + y_offset)
+
+        prev_x, prev_y = x, y
+        lattice = life_update(lattice)
+
+    plt.plot(x_positions, label='x')
+    plt.plot(y_positions, label='y')
+    plt.legend()
+    plt.show()
+
+
 
 
 def speedtest():
@@ -147,19 +255,24 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Conway's Game of Life")
 
     parser.add_argument("-a", "--action", help="What to do with model: 'animate' (animation) or 'measure' (calculate equilibration time) or 'plot' (plot equilibration graph, requires .csv files from 'measure'). Default='plot'", type=str, default='plot')
-    parser.add_argument("-t", "--temperature", help="Thermal energy of system (k_B * T). Default=1.5", type=float, default=1.5)
     parser.add_argument("-n", "--number", help="NxN size of lattice. Default=50", type=int, default=50)
     parser.add_argument("-s", "--state", help="Initialise the system with a specific state (eg. 'Glider')", default=None)
     parser.add_argument("-e", "--engine", help="Which update method to use ('roll' or 'numba')", default="roll")
     
     args = parser.parse_args()
     action = args.action
-    temperature = args.temperature
     N = args.number
     state = args.state
+    engine = args.engine
 
 
     if action == 'plot':
         plot(state, N)
+    elif action == 'equilibrate':
+        equilibrate(state, N, runs=10000)
+    elif action == 'graph':
+        graph()
+    elif action == 'glider_speed':
+        glider_speed()
     
     
