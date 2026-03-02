@@ -8,6 +8,12 @@ from matplotlib.colors import ListedColormap
 
 custom_cmap = ListedColormap(['mintcream', 'tomato', 'darkgreen'])
 
+plt.rcParams.update({ # Use LaTeX for text rendering
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": ["Times"],
+})
+
 running = True # This is to handle exiting the code when the figure is closed
 def on_close(event):
     global running
@@ -227,7 +233,7 @@ def glider_speed():
     plt.show()
 
 
-def init_sirs(N=50, i=0.3, r=0.3):
+def init_sirs(N=50, i=0.333, r=0.333):
     lattice = np.random.rand(N, N)
     
     i_mask = (lattice < i)
@@ -270,7 +276,7 @@ def sirs_update(lattice, psi, pir, prs):
 
 
 
-def sirs(N=50):
+def sirs(N=50, pi=0.1, pr=0.3, ps=0.3):
 
     lattice = init_sirs(N)
     plt.ion()
@@ -281,10 +287,96 @@ def sirs(N=50):
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
     while running:
-        lattice = sirs_update(lattice, psi=0.08, pir=0.3, prs=0.3)
+        lattice = sirs_update(lattice, psi=pi, pir=pr, prs=ps)
         img.set_data(lattice)
         plt.pause(0.05)
     plt.ioff()
+
+def phase(N):
+    t_eq = 100
+    n_meas = 1000
+    grid_spacing = 0.05
+
+    n_sites = N**2
+
+    pir = 0.5
+    prs_vals = np.arange(0, 1, grid_spacing)
+    psi_vals = np.arange(0, 1, grid_spacing)
+
+    means = np.empty([prs_vals.shape[0], psi_vals.shape[0]], dtype=np.float64)
+    variances = np.empty([prs_vals.shape[0], psi_vals.shape[0]], dtype=np.float64)
+
+    for x, prs in enumerate(prs_vals):
+        print(prs)
+        for y, psi in enumerate(psi_vals):
+            fracs = np.empty([n_meas], dtype=np.float64)
+
+            lattice = init_sirs(N)
+
+            for _ in range(t_eq):
+                lattice = sirs_update(lattice, psi, pir, prs)
+
+
+            for i in range(n_meas):
+                lattice = sirs_update(lattice, psi, pir, prs)
+                fracs[i] = np.sum((lattice == 1)) / n_sites
+            means[x, y] = np.mean(fracs)
+            variances[x, y] = np.var(fracs)
+
+        np.savetxt("sirs means.csv", means, delimiter=",")
+        np.savetxt("sirs variances.csv", variances, delimiter=",")
+
+def graph_sirs():
+    try:
+        means = np.loadtxt("sirs means.csv", delimiter=",")
+        variances = np.loadtxt("sirs variances.csv", delimiter=",")
+    except:
+        print("Non-existent files, run phase() first")
+
+    plt.imshow(means, cmap='plasma')
+    plt.xlabel(r"P(r$\rightarrow$s)")
+    plt.ylabel(r"P(s$\rightarrow$i)")
+    cbar = plt.colorbar()
+    cbar.set_label(r"$\langle I \rangle / N$", rotation='horizontal')
+    plt.savefig("sirs means.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+    plt.imshow(variances, cmap='plasma')
+    plt.xlabel(r"P(r$\rightarrow$s)")
+    plt.ylabel(r"P(s$\rightarrow$i)")
+    cbar = plt.colorbar()
+    cbar.set_label(r"$\sigma^2(\langle I \rangle / N)$", rotation='horizontal')
+    plt.savefig("sirs variances.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+def var_cut(N):
+    n_sites = N**2
+    t_eq = 500
+    n_meas = 10000
+    pir = 0.5
+    prs = 0.5
+    psi_vals = np.linspace(0.08, 0.25, 50)
+    var_list = np.empty_like(psi_vals)
+    err_list = np.empty_like(psi_vals)
+
+    for i, psi in enumerate(psi_vals):
+        print(f'{2*i}%')
+
+        lattice = init_sirs(N)
+        for _ in range(t_eq):
+            lattice = sirs_update(lattice, psi, pir, prs)
+
+        fracs = np.empty([n_meas], dtype=np.float64)
+        for j in range(n_meas):
+            lattice = sirs_update(lattice, psi, pir, prs)
+            fracs[j] = np.sum((lattice == 1)) / n_sites
+
+        var_list[i] = np.var(fracs)
+        err_list[i] = np.std(fracs)
+
+    plt.plot(psi_vals, var_list)
+    # plt.errorbar(psi_vals, var_list, err_list)
+    plt.show()
 
 
 
@@ -319,12 +411,19 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--number", help="NxN size of lattice. Default=50", type=int, default=50)
     parser.add_argument("-s", "--state", help="Initialise the system with a specific state (eg. 'Glider')", default=None)
     parser.add_argument("-e", "--engine", help="Which update method to use ('roll' or 'numba')", default="roll")
+    parser.add_argument("-pi", help="Probability of infection p(s->i)", type=float, default=0.1)
+    parser.add_argument("-pr", help="Probability of recovery p(i->r)", type=float, default=0.3)
+    parser.add_argument("-ps", help="Probability of becoming susceptible p(r->s)", type=float, default=0.3)
+
     
     args = parser.parse_args()
     action = args.action
     N = args.number
     state = args.state
     engine = args.engine
+    pi = args.pi
+    pr = args.pr
+    ps = args.ps
 
 
     if action == 'plot':
@@ -336,6 +435,11 @@ if __name__ == "__main__":
     elif action == 'glider_speed':
         glider_speed()
     elif action == 'sirs':
-        sirs(N)
-    
+        sirs(N, pi, pr, ps)
+    elif action == 'phase':
+        phase(N)
+    elif action == 'graph_sirs':
+        graph_sirs()
+    elif action == 'variance_plot':
+        var_cut(N)
     
