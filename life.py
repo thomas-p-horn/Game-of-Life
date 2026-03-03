@@ -5,6 +5,7 @@ import argparse
 import matplotlib.pyplot as plt
 import csv
 from matplotlib.colors import ListedColormap
+from scipy.optimize import curve_fit
 
 custom_cmap = ListedColormap(['mintcream', 'tomato', 'darkgreen'])
 
@@ -13,6 +14,9 @@ plt.rcParams.update({ # Use LaTeX for text rendering
     "font.family": "serif",
     "font.serif": ["Times"],
 })
+
+def line(x, a, b):
+    return a * x + b
 
 running = True # This is to handle exiting the code when the figure is closed
 def on_close(event):
@@ -195,6 +199,7 @@ def compute_com(lattice):
 
 def glider_speed():
     L = 50
+    t = np.arange(1000)
     lattice = init_state(L, 'glider')
 
     x_positions = []
@@ -205,11 +210,10 @@ def glider_speed():
 
     prev_x, prev_y = compute_com(lattice)
 
-    for t in range(200):
+    for _ in t:
         x, y = compute_com(lattice)
 
         dx = x - prev_x
-        print(dx)
         if dx > L/2:
             x_offset -= L
         elif dx < -L/2:
@@ -227,10 +231,34 @@ def glider_speed():
         prev_x, prev_y = x, y
         lattice = life_update(lattice)
 
-    plt.plot(x_positions, label='x')
-    plt.plot(y_positions, label='y')
-    plt.legend()
-    plt.show()
+    x_positions, y_positions, t = np.array(x_positions), np.array(y_positions), np.array(t, dtype=float)
+    indices = np.arange(len(x_positions))
+    mask = (indices - 90) % 200 <= 15
+    x_positions[mask] = np.nan
+    y_positions[mask] = np.nan
+    t[mask] = np.nan
+
+    mask = indices >= 100
+    x_positions[mask] += L * ((indices[mask] - 100) // 200 + 1)
+    y_positions[mask] += L * ((indices[mask] - 100) // 200 + 1)
+
+    x_positions = x_positions[~np.isnan(x_positions)]
+    y_positions = y_positions[~np.isnan(y_positions)]
+    t = t[~np.isnan(t)]
+
+    x_popt, _ = curve_fit(line, t, x_positions)
+    y_popt, _ = curve_fit(line, t, y_positions)
+
+    vx = x_popt[0]
+    vy = y_popt[0]
+    vtot = np.sqrt(vx**2 + vy**2)
+
+    # print(f'Vx = {vx:.5f}')
+    # print(f'Vy = {vy:.5f}')
+    print(f'Glider velocity: {vtot:.5f} cells/timestep')
+
+
+    # plt.plot(t, x_positions, label='x')
 
 
 def init_sirs(N=50, i=0.333, r=0.333):
@@ -307,7 +335,7 @@ def phase(N):
     variances = np.empty([prs_vals.shape[0], psi_vals.shape[0]], dtype=np.float64)
 
     for x, prs in enumerate(prs_vals):
-        print(prs)
+        print(f'{prs*100}%')
         for y, psi in enumerate(psi_vals):
             fracs = np.empty([n_meas], dtype=np.float64)
 
@@ -323,8 +351,8 @@ def phase(N):
             means[x, y] = np.mean(fracs)
             variances[x, y] = np.var(fracs)
 
-        np.savetxt("sirs means.csv", means, delimiter=",")
-        np.savetxt("sirs variances.csv", variances, delimiter=",")
+    np.savetxt("sirs means.csv", means, delimiter=",")
+    np.savetxt("sirs variances.csv", variances, delimiter=",")
 
 def graph_sirs():
     try:
@@ -333,17 +361,17 @@ def graph_sirs():
     except:
         print("Non-existent files, run phase() first")
 
-    plt.imshow(means, cmap='plasma')
-    plt.xlabel(r"P(r$\rightarrow$s)")
-    plt.ylabel(r"P(s$\rightarrow$i)")
+    plt.imshow(means, cmap='plasma', extent=(0, 1, 0, 1), origin='lower', aspect='equal')
+    plt.ylabel(r"P(r$\rightarrow$s)")
+    plt.xlabel(r"P(s$\rightarrow$i)")
     cbar = plt.colorbar()
     cbar.set_label(r"$\langle I \rangle / N$", rotation='horizontal')
     plt.savefig("sirs means.png", dpi=300, bbox_inches='tight')
     plt.close()
 
-    plt.imshow(variances, cmap='plasma')
-    plt.xlabel(r"P(r$\rightarrow$s)")
-    plt.ylabel(r"P(s$\rightarrow$i)")
+    plt.imshow(variances, cmap='plasma', extent=(0, 1, 0, 1), origin='lower', aspect='equal')
+    plt.ylabel(r"P(r$\rightarrow$s)")
+    plt.xlabel(r"P(s$\rightarrow$i)")
     cbar = plt.colorbar()
     cbar.set_label(r"$\sigma^2(\langle I \rangle / N)$", rotation='horizontal')
     plt.savefig("sirs variances.png", dpi=300, bbox_inches='tight')
@@ -355,7 +383,7 @@ def var_cut(N):
     n_meas = 10000
     pir = 0.5
     prs = 0.5
-    psi_vals = np.linspace(0.08, 0.25, 50)
+    psi_vals = np.linspace(0., 0.5, 50)
     var_list = np.empty_like(psi_vals)
     err_list = np.empty_like(psi_vals)
 
