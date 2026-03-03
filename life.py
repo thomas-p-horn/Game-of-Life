@@ -274,7 +274,7 @@ def init_sirs(N=50, i=0.333, r=0.333):
 
     return lattice
     
-def sirs_update(lattice, psi, pir, prs):
+def sirs_update_full_lattice(lattice, psi, pir, prs): # Incorrect implementation, do not use!!!
 
     N = lattice.shape[0]
 
@@ -287,7 +287,7 @@ def sirs_update(lattice, psi, pir, prs):
     temp_lattice[i_mask] = np.where(temp_lattice[i_mask] <= pir, 2, 1)
     temp_lattice[r_mask] = np.where(temp_lattice[r_mask] <= prs, 0, 2)
 
-    directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    directions = [(-1, 0), (0, -1), (0, 1), (1, 0)]
     i_neighbours = np.zeros(lattice.shape)
 
     for dir in directions:
@@ -301,6 +301,71 @@ def sirs_update(lattice, psi, pir, prs):
 
     return temp_lattice.copy()
 
+# def sirs_update(lattice, psi, pir, prs):
+
+#     N = lattice.shape[0]
+#     new_lattice = lattice.copy()
+
+#     for _ in range(N**2):
+
+#         i, j = np.random.randint(0, N, size=2)
+#         p = np.random.rand()
+#         state = new_lattice[i, j]
+
+#         if state == 0: # Chosen site is susceptible
+
+#             neighbours = sum([
+#                 lattice[(i-1) % N, j],
+#                 lattice[(i+1) % N, j],
+#                 lattice[i, (j-1) % N],
+#                 lattice[i, (j+1) % N]
+#             ])
+
+#             if neighbours >= 1 and p <= psi:
+#                 new_lattice[i, j] = 1
+
+#         elif state == 1 and p <= pir: # Chosen site is infected
+#             new_lattice[i, j] = 2
+
+#         elif state == 2 and p <= prs: # Chosen site is recovered
+#             new_lattice[i, j] = 0
+        
+#     return new_lattice
+
+@njit
+def sirs_update(lattice, psi, pir, prs):
+
+    N = lattice.shape[0]
+
+    for _ in range(N * N): # Runs a whole sweep (no need for control over single site updates)
+
+        i = np.random.randint(0, N)
+        j = np.random.randint(0, N)
+
+        state = lattice[i, j]
+
+        if state == 0:
+
+            i_neighbour = (
+                lattice[(i-1) % N, j] == 1 or
+                lattice[(i+1) % N, j] == 1 or
+                lattice[i, (j-1) % N] == 1 or
+                lattice[i, (j+1) % N] == 1
+            )
+
+            if i_neighbour:
+                if np.random.rand() < psi:
+                    lattice[i, j] = 1
+
+        elif state == 1:
+            if np.random.rand() < pir:
+                lattice[i, j] = 2
+
+        elif state == 2:
+            if np.random.rand() < prs:
+                lattice[i, j] = 0
+
+    return lattice
 
 
 
