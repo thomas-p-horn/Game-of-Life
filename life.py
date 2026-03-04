@@ -7,12 +7,6 @@ from scipy.optimize import curve_fit
 
 custom_cmap = ListedColormap(['mintcream', 'tomato', 'darkgreen'])
 
-# plt.rcParams.update({ # Use LaTeX for text rendering
-#     "text.usetex": True,
-#     "font.family": "serif",
-#     "font.serif": ["Times"],
-# })
-
 def line(x, a, b):
     return a * x + b
 
@@ -255,9 +249,6 @@ if __name__ == "__main__":
     L = args.length
     r = args.runs
     state = args.state
-
-    # speedtest()
-    # quit()
 
     if action == 'animate':
         animate(state, L)
