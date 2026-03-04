@@ -1,6 +1,4 @@
 import numpy as np
-from numba import njit, prange
-import time
 import argparse
 import matplotlib.pyplot as plt
 import csv
@@ -92,23 +90,6 @@ def life_update(lattice):
 
     return ((neighbours == 3) | (lattice & (neighbours == 2)))
 
-@njit
-def numba_life_update(lattice):
-    rows, cols = lattice.shape
-    neighbours = np.zeros_like(lattice)
-
-    for i in range(rows):
-        for j in range(cols):
-            for di in (-1, 0, 1):
-                for dj in (-1, 0, 1):
-                    if di == 0 and dj == 0:
-                        continue
-                    ni = (i + di) % rows
-                    nj = (j + dj) % cols
-                    neighbours[i, j] += lattice[ni, nj]
-
-    return ((neighbours == 3) | (lattice & (neighbours == 2))).astype(np.int32)
-
 
 def animate(state=None, N=50):
 
@@ -130,7 +111,7 @@ def animate(state=None, N=50):
         plt.pause(0.05)
     plt.ioff()
 
-def equilibrate(state=None, N=50, runs=100, max_run_length=15000, engine='roll'):
+def equilibrate(state=None, N=50, runs=100, max_run_length=15000):
     times = []
 
     for _ in range(runs):
@@ -147,14 +128,7 @@ def equilibrate(state=None, N=50, runs=100, max_run_length=15000, engine='roll')
                 times.append(i)
                 break
 
-            if engine == 'roll':
-                lattice = life_update(lattice)
-            elif engine == 'numba':
-                lattice = numba_life_update(lattice)
-            else:
-                print("Incorrect engine name.")
-                quit()
-
+            lattice = life_update(lattice)
             alive = np.sum(lattice)
 
             if alive == alive_previous:
@@ -266,27 +240,6 @@ def glider_speed():
     # plt.plot(t, x_positions, label='x')
 
 
-def speedtest():
-    N = 500000
-
-    t1 = time.time()
-
-    lattice = init_random()
-    for _ in range(N):
-        lattice = life_update(lattice)
-    
-    t2 = time.time()
-
-    lattice = init_random()
-    for _ in range(N):
-        lattice = numba_life_update(lattice)
-
-    t3 = time.time()
-
-    print(f"{N} iterations")
-    print(f"Roll: {t2-t1:.2f}s")
-    print(f"Numba: {t3-t2:.2f}s")
-
 
 if __name__ == "__main__":
 
@@ -295,7 +248,6 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--length", help="LxL size of lattice. Default=50", type=int, default=50)
     parser.add_argument("-r", "--runs", help="Number of runs when calculating equilibration time. Default='10000", type=int, default=10000)
     parser.add_argument("-s", "--state", help="Initialise the system with a specific state (eg. 'Glider')", default=None)
-    parser.add_argument("-e", "--engine", help="Which update method to use ('roll' or 'numba'). 'roll' will use numpy's roll function, which is a little slower than using numba-friendly functions.", default="roll")
 
     
     args = parser.parse_args()
@@ -303,7 +255,6 @@ if __name__ == "__main__":
     L = args.length
     r = args.runs
     state = args.state
-    engine = args.engine
 
     # speedtest()
     # quit()
@@ -311,7 +262,7 @@ if __name__ == "__main__":
     if action == 'animate':
         animate(state, L)
     elif action == 'equilibrate':
-        equilibrate(state, L, runs=r, engine=engine)
+        equilibrate(state, L, runs=r)
     elif action == 'graph':
         graph()
     elif action == 'glider_speed':
