@@ -128,7 +128,7 @@ def equilibrate(state=None, N=50, runs=100, max_run_length=15000):
             if alive == alive_previous:
                 N += 1
                 if N >= 50:
-                    times.append(i)
+                    times.append(i-50)
                     break
             else:
                 N = 0
@@ -172,7 +172,7 @@ def compute_com(lattice):
 
 def glider_speed():
     L = 50
-    t = np.arange(1000)
+    t = np.arange(200)
     lattice = init_state(L, 'glider')
 
     x_positions = []
@@ -230,17 +230,23 @@ def glider_speed():
     # print(f'Vy = {vy:.5f}')
     print(f'Glider velocity: {vtot:.5f} cells/timestep')
 
-
-    # plt.plot(t, x_positions, label='x')
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(t, x_positions, label='x')
+    ax.plot(t, y_positions, label='y')
+    ax.text(0.95, 0.5, rf'Glider velocity ($V=\sqrt{{V_x^2 + V_y^2}}$): {vtot:.5f} cells/timestep', transform=ax.transAxes, ha="right", va="top")
+    ax.set_xlabel('Timestep')
+    ax.set_ylabel('Center of mass position')
+    ax.legend()
+    plt.savefig('glider speed.png', dpi=300, bbox_inches='tight')
 
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Conway's Game of Life")
-    parser.add_argument("-a", "--action", help="What to do with model: 'animate' (animation) or 'equilibrate' (calculate equilibration time) or 'graph' (plot equilibration graph, requires .csv files from 'measure'). Default='animate'", type=str, default='animate')
+    parser.add_argument("-a", "--action", help="What to do with model: 'animate' (animation) or 'equilibrate' (calculate equilibration time) or 'graph' (plot equilibration graph, requires .csv files from 'measure') or 'glider_speed' (calculate the CoM velocity of a glider). Default='animate'", type=str, default='animate')
     parser.add_argument("-l", "--length", help="LxL size of lattice. Default=50", type=int, default=50)
-    parser.add_argument("-r", "--runs", help="Number of runs when calculating equilibration time. Default='10000", type=int, default=10000)
+    parser.add_argument("-r", "--runs", help="Number of runs when calculating equilibration time. Default=10000", type=int, default=10_000)
     parser.add_argument("-s", "--state", help="Initialise the system with a specific state (eg. 'Glider')", default=None)
 
     
