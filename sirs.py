@@ -186,8 +186,8 @@ def var_cut(L, s):
             lattice = sirs_update(lattice, psi, pir, prs)
             fracs[j] = np.sum((lattice == 1))
 
-        var_list[i] = np.var(fracs)
-        err_list[i] = bootstrap(fracs, np.var, k=1000)
+        var_list[i] = np.var(fracs) / n_sites
+        err_list[i] = bootstrap(fracs, np.var, k=1000) / n_sites
 
     df = pd.DataFrame({
         "P(s->i)": psi_vals,
@@ -206,9 +206,9 @@ def graph_variance():
 
     # plt.plot(psi_vals, var_list)
     plt.figure(figsize=(16, 6))
-    plt.errorbar(psi_vals, var_list, err_list)
+    plt.errorbar(psi_vals, var_list, err_list, lw=1)
     plt.xlabel('P(s->i)')
-    plt.ylabel(r'$\mathrm{\sigma}^{2}(\langle I \rangle)$')
+    plt.ylabel(r'$\mathrm{\sigma}^{2}(\langle I \rangle) / N$')
     plt.savefig('variances.png', dpi=300, bbox_inches='tight')
 
 def immunity(L, s):
